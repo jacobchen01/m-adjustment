@@ -1,3 +1,7 @@
+# This file is a backup of my implementation for findProperCausalPaths() that uses a recursive
+# implementation. I opted for an iterative implementation because I prefer the iterative implementation
+# of DFS.
+
 def findProperCausalPath(G, X, Y):
     """
     This function finds all proper causal paths from X to Y. A proper causal path is a directed path
