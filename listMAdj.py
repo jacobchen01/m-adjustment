@@ -1,3 +1,16 @@
+"""
+This file contains the function listMAdj() which finds all possible M-adjustment sets and the
+best M-adjustment set according to the M-adjustment criterion proposed by M. Sadaati and 
+J. Tian. The best M-adjustment set is the set that uses the least amount of variables. It also 
+contains helper functions for listMAdj().
+
+This file uses the networkx package's DiGraph class to model directed acyclic graphs (DAGs) and
+check for d-separation.
+https://networkx.org/
+
+This file was written by Jacob Chen.
+"""
+
 import networkx as nx
 import statsmodels.api as sm
 import pandas as pd
@@ -6,12 +19,20 @@ from scipy.special import expit
 
 def findProperCausalPath(G, X, Y):
     """
-    This function finds all proper causal paths from X to Y. A proper causal path is a directed path
-    from X to Y that does not intersect with X except at the beginning of the path (we don't need 
-    to worry about intersecting with X again, though, since G is acyclic).
+    This function finds all proper causal paths from the treatment X to outcome Y. A proper causal path 
+    is a directed path from X to Y that does not intersect with X except at the beginning of the path 
+    (we don't need to worry about intersecting with X again, though, since G is acyclic).
 
-    This function returns the causal path as a list of paths. Each path is represented by a list of 
-    edges, with each edge being represented by a tuple.
+    Inputs
+    ------
+    G: a networkx DiGraph
+    X: a string corresponding to the name of the treatment
+    Y: a string corresponding to the name of the outcome
+
+    Return
+    ------
+    pathEdges: a list of proper causal paths; each path is represented as a list of edges, and
+    each edge is a tuple of the soruce and sink of the edge
     """
     paths = []
 
@@ -49,9 +70,16 @@ def findProperCausalPath(G, X, Y):
 def createProperBackdoorGraph(G, paths):
     """
     This function returns a networkx directed graph in the form of a proper backdoor graph, a
-    graph where the first edge of every proper causal path from X to Y is removed.
+    graph where the first edge of every proper causal path removed.
 
-    paths is a list containing all of the proper causal paths from X to Y.
+    Input
+    ------
+    G: a networkx DiGraph
+    paths: a list of proper causal paths in the format specified in findProperCausalGraph()
+
+    Return
+    -----
+    G_copy: a networkx DiGraph where the first edge of every proper causal path is removed
     """
     G_copy = G.copy()
     for path in paths:
@@ -65,6 +93,15 @@ def createProperBackdoorGraph(G, paths):
 def createGXBarAbove(G, X):
     """
     This function returns a networkx directed graph where all incoming edges to X are deleted.
+
+    Input
+    ------
+    G: a networkx DiGraph
+    X: a string corresponding to the name of the variable of interest
+
+    Return
+    ------
+    G_copy: a networkx DiGraph where all incoming edges to X are deleted
     """
     G_copy = G.copy()
     for parent in G.predecessors(X):
@@ -74,6 +111,15 @@ def createGXBarAbove(G, X):
 def createGXBarBelow(G, X):
     """
     This function returns a networkx directed graph where all outgoing edges from X are deleted.
+
+    Input
+    ------
+    G: a networkx DiGraph
+    X: a string corresponding to the name of the variable of interest
+
+    Return
+    ------
+    G_copy: a networkx DiGraph where all outgoing edges from X are deleted
     """
     G_copy = G.copy()
     for child in G.successors(X):
@@ -83,7 +129,18 @@ def createGXBarBelow(G, X):
 def isAncestor(G, X, V):
     """
     This function returns True if X is an ancestor of any variable in list V. It returns False otherwise.
+
+    Input
+    ------
+    G: a networkx DiGraph
+    X: a string corresponding to the name of the variable of interest
+    V: a list of varibles in which we want to know if X is an ancestor of
+
+    Return
+    ------
+    the Boolean value True if X is an ancestor of any of the varibales in list V and False otherwise
     """
+    # start a DFS that starts from each vertex in V and traverses all of its children
     for vertex in V:
         stk = []
         stk.append(vertex)
@@ -101,6 +158,15 @@ def findDescendants(G, source):
     """
     This function finds all the descendants of vertex source in graph G and returns them in a list,
     including the source vertex itself.
+
+    Input
+    ------
+    G: a networkx DiGraph
+    source: a string corresponding to the name of the source vertex
+
+    Return
+    ------
+    descendants: a list containing all of the descendants of vertex source
     """
     descendants = []
 
@@ -116,17 +182,24 @@ def findDescendants(G, source):
 
 def listMAdj(G, X, Y, V):
     """
-    G is the DAG augmented with missingness mechanisms.
-    V is the set of all observed and unobserved variables, each element in V is a tuple, the first
-    element of the tuple is the variable itself, the second element is the missingness indicator
-    for the variable if it is partially observed and None otherwise
-    X is the treatment, Y is the outcome. Both X and Y are in the format outlined above as well.
-    
-    This function iterates over all possible combinations of adjustment sets and tests each set to
-    see if it fulfills the M-adjustment criterion.
+    This function implements the M-adjustment criterion proposed by M. Sadaati and J. Tian.
+    It iterates over all possible combinations of adjustment sets and tests each set to
+    see if it fulfills the 4 conditions of the M-adjustment criterion.
 
-    This function returns a tuple. The first element is a list of all valid M-adjustment sets. 
-    The second element is the minimum adjustment set with the smallest number of variables.
+    Input
+    ------
+    G: a networkx DiGraph that represents a DAG and is augmented with missingness mechanisms
+    X: a string corresponding to the name of the treatment variable
+    Y: a string corresponding to the name of the outcome variable
+    V: a list of tuples that contains information on each variable in the DAG; the first element
+    of the tuple is a string corresponding to the name of the variable, and the second element is
+    a string corresponding to the name of the missingness mechanism for that variable, if the
+    variable is fully observed the second element of the tuple is None
+
+    Return
+    ------
+    validSets: a list of all valid M-adjustment sets for the given graph and variables
+    bestSet: the M-adjustment set with the least number of variables
     """
     # find D_pcp, the set of descednants of those variables in a proper causal path from X to Y
     D_pcp = set()
@@ -145,13 +218,18 @@ def listMAdj(G, X, Y, V):
     # print('D_pcp', D_pcp)
 
     # There are a total of 2**varNum possible sets that could fulfill the M-adjustment criterion.
+    # Note: removing variables X and Y from V would improve the running time of this algorithm 
+    # by a factor of 1/4
     varNum = len(V)
+
+    # set up return variables and initialize them
     validSets = []
     bestSet = None
-    # Use a for loop that goes from 0 to 2**varNum. Convert the number to binary, and use it to 
-    # represent the set Z we are currently testing for the M-adjustment criterion.
+
+    # Use a for loop that goes from 0 to 2**varNum. Convert the number to its binary representation,
+    # and use it to represent the set Z we are currently testing for the M-adjustment criterion.
     for i in range(0, 2**varNum):
-        # can also use iterative tools here instead of binary strings
+        # make sure we fill in the string so that it is always of length varNum
         binString = bin(i)[2:].zfill(varNum)
         # print(binString)
 
@@ -213,7 +291,9 @@ def listMAdj(G, X, Y, V):
     return (validSets, bestSet)
 
 def createTestGraph1():
-    # test graph 1 tests for proper causal paths
+    """
+    test graph 1 tests for proper causal paths
+    """
     G = nx.DiGraph()
     nodes = [('U', None),('V', None),('A', None),('W', None),('X', None),('T', None),('C', None),('B', None),('Y', None),('Z', None)]
     G.add_nodes_from(['U','V','A','W','X','T','C','B','Y','Z'])
@@ -222,13 +302,14 @@ def createTestGraph1():
     return (G, nodes)
 
 def createTestGraph():
-    # this test graph is a simple graph that tests the output for proper causal paths
+    """
+    this test graph is a simple graph that tests for proper causal paths
+    """
     G = nx.DiGraph()
 
     G.add_nodes_from(['A','M1','M2','Y','C1','C2','C3','C4','C5'])
     G.add_edges_from([('A', 'M1'),('A','M2'),('M1','Y'),('M2','Y'),('C1','C3'),('C1','C4'),('C2','C4'),('C2','C5'),
                       ('C3','A'),('C4','A'),('C4','M1'),('C4','Y'),('C5','Y'),('M1','M2')])
-    # test graph after adding M1 -> M2 path
 
     return G
 

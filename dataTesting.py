@@ -1,5 +1,11 @@
-import networkx as nx
-import statsmodels.api as sm
+"""
+This file contains sample graphs and sample datasets generated according to the conditional 
+independencies implied by those graphs. It tests functions in the file listMAdj.py and bias
+induced by missing data.
+
+This file was written by Jacob Chen.
+"""
+
 import pandas as pd
 import numpy as np
 from scipy.special import expit
@@ -7,7 +13,9 @@ from listMAdj import *
 from adjustment import *
 
 def createTestGraph2():
-    # test graph 2 has two valid m-adjustment sets
+    """
+    test graph 2 has two valid m-adjustment sets
+    """
 
     G = nx.DiGraph()
     nodes = [('X', None),('Y', None),('Z1', 'R_Z1'),('Z2', 'R_Z2')]
@@ -18,11 +26,8 @@ def createTestGraph2():
     return (G, nodes)
 
 def dataTesting2():
-    # this function tests data for graph 2
     np.random.seed(0)
 
-    # what is a good number for size? what is a realistic amount of data to have in real life situations?
-    # depends on application, can base it off of final project from last semester
     # can increase it to see how it behaves asymptotically
     # data generation process (DGP)
     size = 2000
@@ -32,22 +37,20 @@ def dataTesting2():
     Y = 1.5 + 2.5*Z1 + 2*X + np.random.normal(0, 1, size)
     data = pd.DataFrame({"Y": Y, "X": X, "Z1": Z1, "Z2": Z2})
 
-    # also try adjusting Z1 and Z2 as well, expect higher variance but unbiased estimate
+    # can also try adjusting Z1 and Z2 as well, expect higher variance but unbiased estimate
     print('fully observed data:', backdoor_adjustment('Y', 'X', ['Z1'], data), compute_confidence_intervals('Y', 'X', ['Z1'], data, "backdoor"))
 
     # produce a binary variables R_Z1 and R_Z2 that are both functions of Z2
     # a value of 1 indicates that the data is observed, and 0 indicates that the data is not observed
     R_Z1 = np.random.binomial(1, expit(Z2*5.5), size)
     R_Z2 = np.random.binomial(1, expit(Z2*5), size)
+    # make sure that at least 70% of the data is still observed
     assert R_Z1.sum() >= size*0.7, 'too many missing values in R_Z1'
     assert R_Z2.sum() >= size*0.7, 'too many missing values in R_Z2'
 
     # create Z1observed and Z2observed
     # whenever R_Z1 or R_Z2 is observed, copy in actual value of Z1
     # whenever R_Z1 or R_Z2 is not observed, put in an invalid value
-
-    # is heuristic of converting both Z1 and Z2 to float arrays okay? necessary for them to be float
-    # since np.nan is a float value
     Z1_observed = Z1.copy()
     Z2_observed = Z2.copy()
     for i in range(size):
@@ -56,8 +59,6 @@ def dataTesting2():
         if R_Z2[i] == 0:
             # assign some number outside of range of normal binary variable
             Z2_observed[i] = -1
-
-    # enforce dropping rows myself before passing into backdoor_adjustment function
 
     # create a second data set augmented with observed values and missingness mechanisms
     data_missing = data.copy()
@@ -70,13 +71,15 @@ def dataTesting2():
     data_missing = data_missing[data_missing["Z1_observed"] != 99999]
     data_missing = data_missing[data_missing["Z2_observed"] != -1]
 
-    # when calculating backdoor_adjustment, we only need to pass in Z1 (don't need R_Z1 since conditioning is implied)
+    # when calculating backdoor_adjustment, we only need to pass in Z1, we don't need R_Z1 since conditioning is implied
     print('partially observed data:', backdoor_adjustment('Y', 'X', ['Z1_observed'], data_missing), compute_confidence_intervals('Y', 'X', ['Z1_observed'], data_missing, "backdoor"))
 
 def createTestGraph3():
-    # test graph 3 should not fulfill the m_adjustment criterion since we are forced to conition on the 
-    # descendant of a collider
-    # if there were no missing data, Z1 is a sufficient adjustment set
+    """
+    test graph 3 should not fulfill the m_adjustment criterion since we are forced to condition on the
+    missingness mechanism of Z1, which is the descendant of a collider
+    if there were no missing data, Z1 is a sufficient adjustment set
+    """
 
     G = nx.DiGraph()
     nodes = [('X', None),('Y', None),('Z1', 'R_Z1'),('Z2', None)]
@@ -87,7 +90,7 @@ def createTestGraph3():
     return (G, nodes)
 
 def dataTesting3():
-    # this function tests data for graph 3
+    # this function generates a dataset according to graph 3 and tests for its causal effect
     np.random.seed(0)
 
     # data generation
@@ -101,7 +104,6 @@ def dataTesting3():
 
     # produce a binary variables R_Z1 that is a function of Z2
     # a value of 1 indicates that the data is observed, and 0 indicates that the data is not observed
-    # how to create good function for R_Z1
     R_Z1 = np.random.binomial(1, expit(3*Z2-22), size)
     assert R_Z1.sum() >= size*0.7, 'too many missing values in R_Z1'
 
@@ -119,13 +121,13 @@ def dataTesting3():
     # drop the rows where Z1 is missing
     data_missing = data_missing[data_missing["Z1_observed"] != 99999]
 
-    # when calculating backdoor_adjustment, we only need to pass in Z1 (don't need R_Z1 since conditioning is implied)
     print('partially observed data:', backdoor_adjustment('Y', 'X', ['Z1_observed'], data_missing), compute_confidence_intervals('Y', 'X', ['Z1_observed'], data_missing, "backdoor"))
 
 def createTestGraph4():
-    # test graph 4 should not fulfill the m_adjustment criterion since it is impossible to
-    # d-separate Y and its missingness mechanism no matter who is the ancestor of R_Y
-
+    """
+    test graph 4 should not fulfill the m_adjustment criterion since it is impossible to
+    d-separate Y and its missingness mechanism no matter who is the ancestor of R_Y
+    """
     G = nx.DiGraph()
     nodes = [('X', None),('Y', 'R_Y'),('Z1', None),('Z2', None),('Z3', None)]
     G.add_nodes_from(['X','Y','R_Y','Z1','Z2','Z3'])
@@ -146,10 +148,11 @@ def dataTesting4():
     X = np.random.binomial(1, expit(Z1), size)
     Y = 1.5 + 2.5*Z1 + 2.22*Z3 + 2*X + np.random.normal(0, 1, size)
     data = pd.DataFrame({"Y": Y, "X": X, "Z1": Z1, "Z2": Z2, "Z3": Z3})
-    print('fully observed data:', backdoor_adjustment('Y', 'X', ['Z1', 'Z3'], data), compute_confidence_intervals('Y', 'X', ['Z1', 'Z3'], data, "backdoor"))
+    print('fully observed data:', backdoor_adjustment('Y', 'X', ['Z1','Z3'], data), compute_confidence_intervals('Y', 'X', ['Z1','Z3'], data, "backdoor"))
 
     # produce a binary variables R_Y that is a function of Z3
-    R_Y = np.random.binomial(1, expit(Z3**2-1), size)
+    R_Y = np.random.binomial(1, expit(3*Z3+4.2), size)
+    print(R_Y.sum())
     assert R_Y.sum() >= size*0.7, 'too many missing values in R_Y'
 
     # create Y_observed
@@ -165,14 +168,20 @@ def dataTesting4():
 
     # drop the rows where Z1 is missing
     data_missing = data_missing[data_missing["Y_observed"] != 99999]
+    print(data_missing)
 
     # when calculating backdoor_adjustment, we only need to pass in Z1 (don't need R_Z1 since conditioning is implied)
     print('partially observed data:', backdoor_adjustment('Y_observed', 'X', ['Z1', 'Z3'], data_missing), compute_confidence_intervals('Y_observed', 'X', ['Z1', 'Z3'], data_missing, "backdoor"))
 
 def createAIDSGraph():
-    # this graph uses the example of identifying the causal effect of condom use on diagnosis 
-    # of AIDS to test if missing data creates biased estimates of the causal effect
+    """
+    this graph uses the example of identifying the causal effect of condom use on diagnosis 
+    of AIDS to test if missing data creates biased estimates of the causal effect
 
+    If the missing data is a function of observed variables, then the causal effect should
+    be biased. On the other hand, if data is missing completely at random (MCAR), the causal
+    effect should not be biased.
+    """
     G = nx.DiGraph()
     nodes = [('Age',None),('Partners','R_Partners'),('Income',None),('Drug','R_Drug'),('Condom','R_Condom'),('AIDS',None)]
 
@@ -184,11 +193,9 @@ def createAIDSGraph():
     return (G, nodes)
 
 def dataTestAIDSGraph():
-    # this function tests data for graph 4
     np.random.seed(0)
 
     # data generation
-    # check numbers are within reasonable ranges for each variable
     # is there data easily available? can check out data from final project also
     size = 2000
     Age = np.random.normal(30, 10, size)
@@ -217,8 +224,6 @@ def dataTestAIDSGraph():
     amountMissing_R_Condom = R_Condom.sum()
 
     # create observed variables
-
-    # is heuristic of converting both Z1 and Z2 to float arrays okay?
     Partners_observed = Partners.copy()
     Drug_observed = Drug.copy()
     Condom_observed = Condom.copy()
@@ -256,8 +261,6 @@ def dataTestAIDSGraph():
     assert R_Condom_random.sum() >= size*0.8
 
     # create observed variables
-
-    # is heuristic of converting columns to float arrays okay?
     Partners_observed_random = Partners.copy()
     Drug_observed_random = Drug.copy()
     Condom_observed_random = Condom.copy()
@@ -288,8 +291,11 @@ def dataTestAIDSGraph():
     
 
 def createAIDSGraphV2():
-    # this graph is a variant of the graph above except all missingness mechanisms are independent
-    # of observed and partially observed variables
+    """
+    this graph is a variant of the graph above except all missingness mechanisms are independent
+    of observed and partially observed variables, this implies that valid m-adjustment sets should
+    be the same as normal adjustment sets
+    """
 
     G = nx.DiGraph()
     nodes = [('Age',None),('Partners','R_Partners'),('Income',None),('Drug','R_Drug'),('Condom','R_Condom'),('AIDS',None)]
@@ -318,6 +324,9 @@ if __name__ == "__main__":
     dataTesting3()
     print()
 
+    # test graph 4 does not seem to have biased results, perhaps effect of Z3 on R_Y is not 
+    # strong enough?
+    # the estimate of the causal effect when there is no missing data also seems to be biased
     testGraph = createTestGraph4()
     G = testGraph[0]
     nodes = testGraph[1]
@@ -326,12 +335,13 @@ if __name__ == "__main__":
     dataTesting4()
     print()
 
+    # MNAR dataset seems to be pretty unbiased, but MCAR dataset is pretty biased?
     testGraph = createAIDSGraph()
     G = testGraph[0]
     nodes = testGraph[1]
     print(listMAdj(G, 'Condom', 'AIDS', nodes))
     print('testing AIDS graph, first test is a version of graph where there is no valid m-adjustment set')
-    print('second test uses assumption that missingness is caused at random, so m-adjustment set is same as normal adjustment set (MCAR)')
+    print('second test uses assumption that missingness is caused at random, so m-adjustment set is same as normal adjustment set (data is MCAR)')
     dataTestAIDSGraph()
 
     # testGraph = createAIDSGraphV2()

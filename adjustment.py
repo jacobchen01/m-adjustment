@@ -1,3 +1,8 @@
+"""
+This code is copied from Prof. Rohit Bhattacharya. It contains functions for calculating the causal
+effect of a treatment variable and confidence intervals via bootstrap sampling.
+"""
+
 import statsmodels.api as sm
 import pandas as pd
 import numpy as np
