@@ -143,16 +143,21 @@ def dataTesting4():
     # data generation
     size = 2000
     Z2 = np.random.normal(0, 1, size)
-    Z1 = 3.75*Z2 + np.random.normal(0, 1, size)
-    Z3 = 2.34*Z2 + np.random.normal(0, 1, size)
+    #Z1 = 3.75*Z2 + np.random.normal(0, 1, size)
+    Z1 = np.random.binomial(1, expit(Z2+0.5), size)
+    #print(Z1.sum())
+    #Z3 = 2.34*Z2 + np.random.normal(0, 1, size)
+    Z3 = np.random.binomial(1, expit(Z2), size)
+    #print(Z3.sum())
     X = np.random.binomial(1, expit(Z1), size)
     Y = 1.5 + 2.5*Z1 + 2.22*Z3 + 2*X + np.random.normal(0, 1, size)
     data = pd.DataFrame({"Y": Y, "X": X, "Z1": Z1, "Z2": Z2, "Z3": Z3})
     print('fully observed data:', backdoor_adjustment('Y', 'X', ['Z1','Z3'], data), compute_confidence_intervals('Y', 'X', ['Z1','Z3'], data, "backdoor"))
 
     # produce a binary variables R_Y that is a function of Z3
-    R_Y = np.random.binomial(1, expit(3*Z3+4.2), size)
-    print(R_Y.sum())
+    #R_Y = np.random.binomial(1, expit(3*Z3+4.2), size)
+    R_Y = np.random.binomial(1, expit(Z3+0.5), size)
+    #print(R_Y.sum())
     assert R_Y.sum() >= size*0.7, 'too many missing values in R_Y'
 
     # create Y_observed
@@ -168,7 +173,7 @@ def dataTesting4():
 
     # drop the rows where Z1 is missing
     data_missing = data_missing[data_missing["Y_observed"] != 99999]
-    print(data_missing)
+    #print(data_missing)
 
     # when calculating backdoor_adjustment, we only need to pass in Z1 (don't need R_Z1 since conditioning is implied)
     print('partially observed data:', backdoor_adjustment('Y_observed', 'X', ['Z1', 'Z3'], data_missing), compute_confidence_intervals('Y_observed', 'X', ['Z1', 'Z3'], data_missing, "backdoor"))
@@ -324,9 +329,9 @@ if __name__ == "__main__":
     dataTesting3()
     print()
 
-    # test graph 4 does not seem to have biased results, perhaps effect of Z3 on R_Y is not 
-    # strong enough?
-    # the estimate of the causal effect when there is no missing data also seems to be biased
+    # test graph 4 does not seem to have biased results
+    # could it be that this is one of the cases where the M-adjustment criterion fails, but it
+    # is still possible to recover the causal effect?
     testGraph = createTestGraph4()
     G = testGraph[0]
     nodes = testGraph[1]
