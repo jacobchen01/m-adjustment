@@ -1,9 +1,0 @@
-https://piazza.com/class_profile/get_resource/ksex04d512sxs/ku48el1jdg97f1
-https://piazza.com/class_profile/get_resource/ksex04d512sxs/kvmk2sar83962o
-https://networkx.org/documentation/stable/reference/algorithms/index.html
-https://networkx.org/documentation/stable/reference/algorithms/d_separation.html#examples
-https://networkx.org/documentation/stable/reference/algorithms/generated/networkx.algorithms.d_separation.d_separated.html
-https://networkx.org/documentation/stable/reference/classes/digraph.html#networkx.DiGraph
-
-assert statements
-https://www.programiz.com/python-programming/assert-statement
