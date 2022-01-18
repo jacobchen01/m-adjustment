@@ -198,6 +198,7 @@ def listMAdj(G, X, Y, V):
 
     Return
     ------
+    a tuple containing the two following elements
     validSets: a list of all valid M-adjustment sets for the given graph and variables
     bestSet: the M-adjustment set with the least number of variables
     """

@@ -315,27 +315,99 @@ def createAIDSGraphV2():
                       ('Income','Condom'),('Drug','AIDS'),('Drug','Condom'),('Condom','AIDS')])
     return (G, nodes)
 
+def createTestGraph5():
+    """
+    Test graph 5 examines the tradeoff between adjusting for the minimal set versus the efficient set. When no data
+    is missing, the set {Z1,Z3} is the efficient adjustment set. However, when Z1 is partially observed, would 
+    {Z1,Z3} still yield more unbiased results than the minimal set {Z3} that has only fully observed data?
 
-if __name__ == "__main__":
-    # testGraph = createTestGraph2()
-    # G = testGraph[0]
-    # nodes = testGraph[1]
-    # print(listMAdj(G, 'X', 'Y', nodes))
-    # print('testing graph 2, has valid m-adjustment set')
-    # dataTesting2()
-    # print()
+    It turns out that when Z1 and Z2 are partially observed, just adjusting for Z3 yields pretty much the same
+    results. We're not adjusting for any variables that are partially observed, so the estimate is pretty much
+    the same. When Z1 is partially observed, adjusting for both Z1 and Z3 yields a result that is pretty close in
+    accuracy to the result obtained when Z1 is fully observed. The variance, however, is higher when the data
+    is partially observed.
+    """
+    G = nx.DiGraph()
+    nodes = [('A', None),('Y', None),('Z1', 'R_Z1'),('Z2', 'R_Z2'),('Z3', None)]
+    G.add_nodes_from(['A','M','Y','Z1','Z2','Z3','R_Z1','R_Z2'])
 
-    # testGraph = createTestGraph3()
-    # G = testGraph[0]
-    # nodes = testGraph[1]
-    # print(listMAdj(G, 'X', 'Y', nodes))
-    # print('testing graph 3, does not have valid m-adjustment set')
-    # dataTesting3()
-    # print()
+    G.add_edges_from([('A','M'),('M','Y'),('Z2','R_Z2'),('Z2','R_Z1'),('Z2','A'),('Z3','A'),('Z3','Y'),('Z1','M')])
 
+    return (G, nodes)
+
+def dataTesting5():
+    # this function tests data for graph 4
+    np.random.seed(0)
+
+    # data generation process
+    size = 2000
+    Z1 = np.random.normal(0, 1, size)
+    Z2 = np.random.normal(0, 1, size)
+    Z3 = np.random.normal(0, 1, size)
+    A = np.random.binomial(1, expit(Z2/2 + Z3/2), size)
+    #print(A.sum())
+    M = 0.5 + 2*Z1 + 2*A + np.random.normal(0, 1, size)
+    # M = np.random.binomial(1, expit(A + Z1), size)
+    # print(M.sum())
+    Y = 1.5 + 6*Z3 + 2*M + np.random.normal(0, 1, size)
+    data = pd.DataFrame({"Y": Y, "A": A, "M": M, "Z1": Z1, "Z2": Z2, "Z3": Z3})
+    print('fully observed data, adjustment set {Z3}:', backdoor_adjustment('Y', 'A', ['Z3'], data), compute_confidence_intervals('Y', 'A', ['Z3'], data, "backdoor"))
+    print('fully observed data, adjustment set {Z1,Z3}:', backdoor_adjustment('Y', 'A', ['Z1','Z3'], data), compute_confidence_intervals('Y', 'A', ['Z1','Z3'], data, "backdoor"))
+    print()
+
+    # create missingness mechanisms
+    R_Z1 = np.random.binomial(1, expit(2*Z2+1.5), size)
+    R_Z2 = np.random.binomial(1, expit(1.5*Z2+1.3), size)
+    # print(R_Z1.sum())
+    # print(R_Z2.sum())
+    assert R_Z1.sum() >= size*0.7, 'too many missing values in R_Z1'
+    assert R_Z1.sum() >= size*0.7, 'too many missing values in R_Z2'
+
+    # create observed variables
+    Z1_observed = Z1.copy()
+    Z2_observed = Z2.copy()
+    for i in range(size):
+        if R_Z1[i] == 0:
+            Z1_observed[i] = 99999
+        if R_Z2[i] == 0:
+            Z2_observed[i] = 99999
+
+    # create a copy of the data set augmented with observed values and missingness mechanisms
+    data_missing = data.copy()
+    data_missing["R_Z1"] = R_Z1
+    data_missing["Z1_observed"] = Z1_observed
+    data_missing["R_Z2"] = R_Z2
+    data_missing["Z2_observed"] = Z2_observed
+
+    # when the adjustment set is just Z3, Z3 is full observed so there's no need to drop any rows of data
+    print('partially observed data, adjustment set {Z3}:', backdoor_adjustment('Y', 'A', ['Z3'], data_missing), compute_confidence_intervals('Y', 'A', ['Z3'], data_missing, "backdoor"))
+
+    # drop the rows where Z1 is missing
+    data_missing = data_missing[data_missing["Z1_observed"] != 99999]
+    print('partially observed data, adjustment set {Z1,Z3}:', backdoor_adjustment('Y', 'A', ['Z1_observed','Z3'], data_missing), compute_confidence_intervals('Y', 'A', ['Z1_observed','Z3'], data_missing, "backdoor"))
+
+def testGraph2():
+    testGraph = createTestGraph2()
+    G = testGraph[0]
+    nodes = testGraph[1]
+    print(listMAdj(G, 'X', 'Y', nodes))
+    print('testing graph 2, has valid m-adjustment set')
+    dataTesting2()
+    print()
+
+def testGraph3():
+    testGraph = createTestGraph3()
+    G = testGraph[0]
+    nodes = testGraph[1]
+    print(listMAdj(G, 'X', 'Y', nodes))
+    print('testing graph 3, does not have valid m-adjustment set')
+    dataTesting3()
+    print()
+
+def testGraph4():
     # test graph 4 does not seem to have biased results
-    # could it be that this is one of the cases where the M-adjustment criterion fails, but it
-    # is still possible to recover the causal effect?
+    # it turns out that the causal effect for this graph is not recoverable using simple adjustment but
+    # is recoverable via the IPW method
     testGraph = createTestGraph4()
     G = testGraph[0]
     nodes = testGraph[1]
@@ -344,16 +416,33 @@ if __name__ == "__main__":
     dataTesting4()
     print()
 
+def testAIDSGraph():
     # MNAR dataset seems to be pretty unbiased, but MCAR dataset is pretty biased?
-    # testGraph = createAIDSGraph()
-    # G = testGraph[0]
-    # nodes = testGraph[1]
-    # print(listMAdj(G, 'Condom', 'AIDS', nodes))
-    # print('testing AIDS graph, first test is a version of graph where there is no valid m-adjustment set')
-    # print('second test uses assumption that missingness is caused at random, so m-adjustment set is same as normal adjustment set (data is MCAR)')
-    # dataTestAIDSGraph()
+    testGraph = createAIDSGraph()
+    G = testGraph[0]
+    nodes = testGraph[1]
+    print(listMAdj(G, 'Condom', 'AIDS', nodes))
+    print('testing AIDS graph, first test is a version of graph where there is no valid m-adjustment set')
+    print('second test uses assumption that missingness is caused at random, so m-adjustment set is same as normal adjustment set (data is MCAR)')
+    dataTestAIDSGraph()
 
-    # testGraph = createAIDSGraphV2()
-    # G = testGraph[0]
-    # nodes = testGraph[1]
-    # print(listMAdj(G, 'Condom', 'AIDS', nodes))
+    testGraph = createAIDSGraphV2()
+    G = testGraph[0]
+    nodes = testGraph[1]
+    print(listMAdj(G, 'Condom', 'AIDS', nodes))
+
+def testGraph5():
+    testGraph = createTestGraph5()
+    G = testGraph[0]
+    nodes = testGraph[1]
+    print('testing graph 5, which has valid m-adjustment sets')
+    print(listMAdj(G, 'A', 'Y', nodes))
+    dataTesting5()
+    print()
+
+if __name__ == "__main__":
+    # testGraph2()
+    # testGraph3()    
+    # testGraph4()
+    # testAIDSGraph()
+    testGraph5()
