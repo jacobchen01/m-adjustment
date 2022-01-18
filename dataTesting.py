@@ -127,6 +127,10 @@ def createTestGraph4():
     """
     test graph 4 should not fulfill the m_adjustment criterion since it is impossible to
     d-separate Y and its missingness mechanism no matter who is the ancestor of R_Y
+
+    it turns out that the IPW method is able to recover the causal effect in this graph
+    if you reweight the data with the distribution p(R_Y|Z3), then the new kernel is
+    as if the edge Z3->R_Y was removed
     """
     G = nx.DiGraph()
     nodes = [('X', None),('Y', 'R_Y'),('Z1', None),('Z2', None),('Z3', None)]
@@ -150,13 +154,14 @@ def dataTesting4():
     Z3 = np.random.binomial(1, expit(Z2), size)
     #print(Z3.sum())
     X = np.random.binomial(1, expit(Z1), size)
-    Y = 1.5 + 2.5*Z1 + 2.22*Z3 + 2*X + np.random.normal(0, 1, size)
+    #print(X.sum())
+    Y = 1.5 + 2.5*Z1 + 6*Z3 + 2*X + np.random.normal(0, 1, size)
     data = pd.DataFrame({"Y": Y, "X": X, "Z1": Z1, "Z2": Z2, "Z3": Z3})
     print('fully observed data:', backdoor_adjustment('Y', 'X', ['Z1','Z3'], data), compute_confidence_intervals('Y', 'X', ['Z1','Z3'], data, "backdoor"))
 
     # produce a binary variables R_Y that is a function of Z3
     #R_Y = np.random.binomial(1, expit(3*Z3+4.2), size)
-    R_Y = np.random.binomial(1, expit(Z3+0.5), size)
+    R_Y = np.random.binomial(1, expit(2*Z3-0.5), size)
     #print(R_Y.sum())
     assert R_Y.sum() >= size*0.7, 'too many missing values in R_Y'
 
@@ -175,8 +180,7 @@ def dataTesting4():
     data_missing = data_missing[data_missing["Y_observed"] != 99999]
     #print(data_missing)
 
-    # when calculating backdoor_adjustment, we only need to pass in Z1 (don't need R_Z1 since conditioning is implied)
-    print('partially observed data:', backdoor_adjustment('Y_observed', 'X', ['Z1', 'Z3'], data_missing), compute_confidence_intervals('Y_observed', 'X', ['Z1', 'Z3'], data_missing, "backdoor"))
+    print('partially observed data:', backdoor_adjustment('Y_observed', 'X', ['Z1','Z3'], data_missing), compute_confidence_intervals('Y_observed', 'X', ['Z1','Z3'], data_missing, "backdoor"))
 
 def createAIDSGraph():
     """
@@ -313,21 +317,21 @@ def createAIDSGraphV2():
 
 
 if __name__ == "__main__":
-    testGraph = createTestGraph2()
-    G = testGraph[0]
-    nodes = testGraph[1]
-    print(listMAdj(G, 'X', 'Y', nodes))
-    print('testing graph 2, has valid m-adjustment set')
-    dataTesting2()
-    print()
+    # testGraph = createTestGraph2()
+    # G = testGraph[0]
+    # nodes = testGraph[1]
+    # print(listMAdj(G, 'X', 'Y', nodes))
+    # print('testing graph 2, has valid m-adjustment set')
+    # dataTesting2()
+    # print()
 
-    testGraph = createTestGraph3()
-    G = testGraph[0]
-    nodes = testGraph[1]
-    print(listMAdj(G, 'X', 'Y', nodes))
-    print('testing graph 3, does not have valid m-adjustment set')
-    dataTesting3()
-    print()
+    # testGraph = createTestGraph3()
+    # G = testGraph[0]
+    # nodes = testGraph[1]
+    # print(listMAdj(G, 'X', 'Y', nodes))
+    # print('testing graph 3, does not have valid m-adjustment set')
+    # dataTesting3()
+    # print()
 
     # test graph 4 does not seem to have biased results
     # could it be that this is one of the cases where the M-adjustment criterion fails, but it
@@ -341,13 +345,13 @@ if __name__ == "__main__":
     print()
 
     # MNAR dataset seems to be pretty unbiased, but MCAR dataset is pretty biased?
-    testGraph = createAIDSGraph()
-    G = testGraph[0]
-    nodes = testGraph[1]
-    print(listMAdj(G, 'Condom', 'AIDS', nodes))
-    print('testing AIDS graph, first test is a version of graph where there is no valid m-adjustment set')
-    print('second test uses assumption that missingness is caused at random, so m-adjustment set is same as normal adjustment set (data is MCAR)')
-    dataTestAIDSGraph()
+    # testGraph = createAIDSGraph()
+    # G = testGraph[0]
+    # nodes = testGraph[1]
+    # print(listMAdj(G, 'Condom', 'AIDS', nodes))
+    # print('testing AIDS graph, first test is a version of graph where there is no valid m-adjustment set')
+    # print('second test uses assumption that missingness is caused at random, so m-adjustment set is same as normal adjustment set (data is MCAR)')
+    # dataTestAIDSGraph()
 
     # testGraph = createAIDSGraphV2()
     # G = testGraph[0]
