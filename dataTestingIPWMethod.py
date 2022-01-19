@@ -1,6 +1,9 @@
 """
-This file contains an m-graph that does not have a valid m-adjustment set according to the criterion proposed
+This file contains an m-graph that does not have a valid m-adjustment set according to the M-adjustment criterion proposed
 by Sadaati and Tian. However, the causal effect is recoverable via the IPW method in this case.
+
+After reweighting for the propensity scores of each missingness indicator in the graph, the estimation of the causal effect
+appears to be unbiased but has wider variance.
 """
 
 import networkx as nx
@@ -29,7 +32,7 @@ def dataTesting():
     size = 2000
     C = np.random.normal(0, 1, size)
     A = np.random.binomial(1, expit(C), size)
-    print(A.sum())
+    #print(A.sum())
     Y = 1.5 + 2.5*C + 2*A + np.random.normal(0, 1, size)
     data = pd.DataFrame({"Y": Y, "A": A, "C": C})
 
@@ -90,19 +93,19 @@ def dataTesting():
     #print(A_observed.size)
     Y_observed = np.delete(Y_observed, to_delete, None)
     #print(Y_observed.size)
-    size_missing = C_observed.size
 
+    # We know the exact formula for the propensity scores, so we just replicate it. The probability of a missingness
+    # indicator being 1 is represented by the following functions. The numpy arrays of observed variables contain only
+    # rows where the data is observed.
     propensityScore_R_C = expit(Y_observed+A_observed-0.3)
     propensityScore_R_A = expit(C_observed+Y_observed+0.1)
     propensityScore_R_Y = expit(A_observed+C_observed+0.7)
 
     # add the weights to the dataframe
     data_missing["weights"] = 1/(propensityScore_R_C*propensityScore_R_A*propensityScore_R_Y)
-    print(data_missing["weights"].describe())
 
-    weighted_data_missing = data_missing.sample(n=size_missing, weights="weights")
-    print(data_missing["C_observed"].describe())
-    print(weighted_data_missing["C_observed"].describe())
+    # sample the data with replacement according to the weights
+    weighted_data_missing = data_missing.sample(n=len(data_missing), replace=True, weights="weights")
     
     print('partially observed data:', backdoor_adjustment('Y_observed', 'A_observed', ['C_observed'], data_missing), compute_confidence_intervals('Y_observed', 'A_observed', ['C_observed'], data_missing, "backdoor"))
     print('partially observed weighted data:', backdoor_adjustment('Y_observed', 'A_observed', ['C_observed'], weighted_data_missing), compute_confidence_intervals('Y_observed', 'A_observed', ['C_observed'], weighted_data_missing, "backdoor"))
@@ -111,5 +114,5 @@ if __name__ == "__main__":
     testGraph = createTestGraph()
     G = testGraph[0]
     nodes = testGraph[1]
-    print(listMAdj(G, 'A', 'Y', nodes))
+    print('m-adjustment sets:', listMAdj(G, 'A', 'Y', nodes))
     dataTesting()
