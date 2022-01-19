@@ -16,7 +16,6 @@ def createTestGraph2():
     """
     test graph 2 has two valid m-adjustment sets
     """
-
     G = nx.DiGraph()
     nodes = [('X', None),('Y', None),('Z1', 'R_Z1'),('Z2', 'R_Z2')]
     G.add_nodes_from(['Z2','Z1','R_Z1','R_Z2','X','Y'])

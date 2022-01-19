@@ -14,3 +14,6 @@ The simplicity of this criterion allows it to be implemented in such a manner th
 
 Saadati, Mojdeh, and Jin Tian. "Adjustment Criteria for Recovering Causal Effects from Missing Data."
 https://faculty.sites.iastate.edu/jtian/files/inline-files/ecml-19-cmr.pdf
+
+This repository was written by Jacob Chen and Rohit Bhattacharya as a part of a Winter Study project at Williams College.
+January, 2022
