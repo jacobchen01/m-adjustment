@@ -146,6 +146,45 @@ def dataTesting4():
     # data generation
     size = 2000
     Z2 = np.random.normal(0, 1, size)
+    Z1 = Z2 + np.random.normal(0, 1, size)
+    Z3 = 2*Z2 + np.random.normal(0, 1, size)
+    X = np.random.binomial(1, expit(Z1), size)
+    Y = 1.5 + 3*Z1 + 4*Z3 + 2*X + np.random.normal(0, 1, size)
+    data = pd.DataFrame({"Y": Y, "X": X, "Z1": Z1, "Z2": Z2, "Z3": Z3})
+    print('fully observed data, {Z1}:', backdoor_adjustment('Y', 'X', ['Z1'], data), compute_confidence_intervals('Y', 'X', ['Z1'], data, "backdoor"))
+    print('fully observed data, {Z1, Z3}:', backdoor_adjustment('Y', 'X', ['Z1','Z3'], data), compute_confidence_intervals('Y', 'X', ['Z1','Z3'], data, "backdoor"))
+
+    # produce a binary variables R_Y that is a function of Z3
+    #R_Y = np.random.binomial(1, expit(3*Z3+4.2), size)
+    R_Y = np.random.binomial(1, expit(Z3+1.5), size)
+    #print(R_Y.sum())
+    assert R_Y.sum() >= size*0.7, 'too many missing values in R_Y'
+
+    # create Y_observed
+    Y_observed = Y.copy()
+    for i in range(size):
+        if R_Y[i] == 0:
+            Y_observed[i] = 99999
+
+    # create a second data set augmented with observed values and missingness mechanisms
+    data_missing = data.copy()
+    data_missing["R_Y"] = R_Y
+    data_missing["Y_observed"] = Y_observed
+
+    # drop the rows where Z1 is missing
+    data_missing = data_missing[data_missing["Y_observed"] != 99999]
+    #print(data_missing)
+
+    print('partially observed data, {Z1}:', backdoor_adjustment('Y_observed', 'X', ['Z1'], data_missing), compute_confidence_intervals('Y_observed', 'X', ['Z1'], data_missing, "backdoor"))
+    print('partially observed data, {Z1, Z3}:', backdoor_adjustment('Y_observed', 'X', ['Z1','Z3'], data_missing), compute_confidence_intervals('Y_observed', 'X', ['Z1','Z3'], data_missing, "backdoor"))
+
+def dataTesting4Unbiased():
+    print('this is data testing for graph 4 where the estimate for causal effect in missing data appears unbiased')
+    np.random.seed(0)
+
+    # data generation
+    size = 2000
+    Z2 = np.random.normal(0, 1, size)
     #Z1 = 3.75*Z2 + np.random.normal(0, 1, size)
     Z1 = np.random.binomial(1, expit(Z2+0.5), size)
     #print(Z1.sum())
@@ -156,7 +195,8 @@ def dataTesting4():
     #print(X.sum())
     Y = 1.5 + 2.5*Z1 + 6*Z3 + 2*X + np.random.normal(0, 1, size)
     data = pd.DataFrame({"Y": Y, "X": X, "Z1": Z1, "Z2": Z2, "Z3": Z3})
-    print('fully observed data:', backdoor_adjustment('Y', 'X', ['Z1','Z3'], data), compute_confidence_intervals('Y', 'X', ['Z1','Z3'], data, "backdoor"))
+    print('fully observed data, {Z1}:', backdoor_adjustment('Y', 'X', ['Z1'], data), compute_confidence_intervals('Y', 'X', ['Z1'], data, "backdoor"))
+    print('fully observed data, {Z1,Z3}:', backdoor_adjustment('Y', 'X', ['Z1','Z3'], data), compute_confidence_intervals('Y', 'X', ['Z1','Z3'], data, "backdoor"))
 
     # produce a binary variables R_Y that is a function of Z3
     #R_Y = np.random.binomial(1, expit(3*Z3+4.2), size)
@@ -179,7 +219,8 @@ def dataTesting4():
     data_missing = data_missing[data_missing["Y_observed"] != 99999]
     #print(data_missing)
 
-    print('partially observed data:', backdoor_adjustment('Y_observed', 'X', ['Z1','Z3'], data_missing), compute_confidence_intervals('Y_observed', 'X', ['Z1','Z3'], data_missing, "backdoor"))
+    print('partially observed data, {Z1}:', backdoor_adjustment('Y_observed', 'X', ['Z1'], data_missing), compute_confidence_intervals('Y_observed', 'X', ['Z1'], data_missing, "backdoor"))
+    print('partially observed data, {Z1, Z3}:', backdoor_adjustment('Y_observed', 'X', ['Z1','Z3'], data_missing), compute_confidence_intervals('Y_observed', 'X', ['Z1','Z3'], data_missing, "backdoor"))
 
 def createAIDSGraph():
     """
@@ -413,6 +454,8 @@ def testGraph4():
     print(listMAdj(G, 'X', 'Y', nodes))
     print('testing graph 4, does not have valid m-adjustment set')
     dataTesting4()
+    print()
+    dataTesting4Unbiased()
     print()
 
 def testAIDSGraph():
