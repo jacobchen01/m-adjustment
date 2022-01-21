@@ -73,33 +73,40 @@ def dataTesting():
     data_missing["A_observed"] = A_observed
     data_missing["Y_observed"] = Y_observed
 
+    # Create models for propensity scores of missingness mechanisms. Missingness mechanisms are predicted using only
+    # data that is observed.
+    # need to make a dataframe that keeps all R_C and removes only data where R_A and R_Y = 1
+    data_missing_C = data_missing.copy()
+    data_missing_C = data_missing_C[data_missing_C["A_observed"] != -1]
+    data_missing_C = data_missing_C[data_missing_C["Y_observed"] != 99999]
+
+    model_R_C = sm.GLM.from_formula(formula='R_C ~ A_observed + Y_observed', data=data_missing_C, family=sm.families.Binomial()).fit()
+
+    # need to make a dataframe that keeps all R_A and removes only data where R_C and R_Y = 1
+    data_missing_A = data_missing.copy()
+    data_missing_A = data_missing_A[data_missing_A["C_observed"] != 99999]
+    data_missing_A = data_missing_A[data_missing_A["Y_observed"] != 99999]
+
+    model_R_A = sm.GLM.from_formula(formula='R_A ~ C_observed + Y_observed', data=data_missing_A, family=sm.families.Binomial()).fit()
+
+    # need to make a dataframe that keeps all R_Y and removes only data where R_A and R_C = 1
+    data_missing_Y = data_missing.copy()
+    data_missing_Y = data_missing_Y[data_missing_Y["A_observed"] != -1]
+    data_missing_Y = data_missing_Y[data_missing_Y["C_observed"] != 99999]
+
+    model_R_Y = sm.GLM.from_formula(formula='R_Y ~ A_observed + C_observed', data=data_missing_Y, family=sm.families.Binomial()).fit()
+
+    # create dataframe where all missing data are dropped
     data_missing = data_missing[data_missing["C_observed"] != 99999]
     data_missing = data_missing[data_missing["A_observed"] != -1]
     data_missing = data_missing[data_missing["Y_observed"] != 99999]
     # there are about 1000 rows of data remaining
     #print(data_missing)
 
-    # Fit the model for the propensity score.
-    # We know the exact formula for the propensity scores, so do we need to fit a model here? Trying to fit a model also gives
-    # me a perfect separation error.
-    # model_R_C = sm.GLM.from_formula(formula='R_C ~ A_observed + Y_observed', data=data_missing, family=sm.families.Binomial()).fit()
-    # model_R_A = sm.GLM.from_formula(formula='R_A ~ C_observed + Y_observed', data=data_missing, family=sm.families.Binomial()).fit()
-    # model_R_Y = sm.GLM.from_formula(formula='R_Y ~ A_observed + C_observed', data=data_missing, family=sm.families.Binomial()).fit()
-
-    # remove unobserved rows of data from each of the observed variables
-    C_observed = np.delete(C_observed, to_delete, None)
-    #print(C_observed.size)
-    A_observed = np.delete(A_observed, to_delete, None)
-    #print(A_observed.size)
-    Y_observed = np.delete(Y_observed, to_delete, None)
-    #print(Y_observed.size)
-
-    # We know the exact formula for the propensity scores, so we just replicate it. The probability of a missingness
-    # indicator being 1 is represented by the following functions. The numpy arrays of observed variables contain only
-    # rows where the data is observed.
-    propensityScore_R_C = expit(Y_observed+A_observed-0.3)
-    propensityScore_R_A = expit(C_observed+Y_observed+0.1)
-    propensityScore_R_Y = expit(A_observed+C_observed+0.7)
+    # Make predictions for propensity scores.
+    propensityScore_R_C = model_R_C.predict(data_missing)
+    propensityScore_R_A = model_R_A.predict(data_missing)
+    propensityScore_R_Y = model_R_Y.predict(data_missing)
 
     # add the weights to the dataframe
     data_missing["weights"] = 1/(propensityScore_R_C*propensityScore_R_A*propensityScore_R_Y)

@@ -160,8 +160,8 @@ def dataTesting4():
 
     # produce a binary variables R_Y that is a function of Z3
     #R_Y = np.random.binomial(1, expit(3*Z3+4.2), size)
-    R_Y = np.random.binomial(1, expit(2*Z3-0.5), size)
-    #print(R_Y.sum())
+    R_Y = np.random.binomial(1, expit(2*Z3+0.3), size)
+    # print(R_Y.sum())
     assert R_Y.sum() >= size*0.7, 'too many missing values in R_Y'
 
     # create Y_observed
@@ -360,7 +360,7 @@ def dataTesting5():
     # print(R_Z1.sum())
     # print(R_Z2.sum())
     assert R_Z1.sum() >= size*0.7, 'too many missing values in R_Z1'
-    assert R_Z1.sum() >= size*0.7, 'too many missing values in R_Z2'
+    assert R_Z2.sum() >= size*0.7, 'too many missing values in R_Z2'
 
     # create observed variables
     Z1_observed = Z1.copy()
@@ -440,8 +440,8 @@ def testGraph5():
     print()
 
 if __name__ == "__main__":
-    # testGraph2()
-    # testGraph3()    
-    # testGraph4()
-    # testAIDSGraph()
+    testGraph2()
+    testGraph3()    
+    testGraph4()
+    testAIDSGraph()
     testGraph5()
