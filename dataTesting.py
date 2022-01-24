@@ -9,6 +9,7 @@ This file was written by Jacob Chen.
 import pandas as pd
 import numpy as np
 from scipy.special import expit
+import matplotlib.pyplot as plt
 from listMAdj import *
 from adjustment import *
 
@@ -221,6 +222,57 @@ def dataTesting4Unbiased():
 
     print('partially observed data, {Z1}:', backdoor_adjustment('Y_observed', 'X', ['Z1'], data_missing), compute_confidence_intervals('Y_observed', 'X', ['Z1'], data_missing, "backdoor"))
     print('partially observed data, {Z1, Z3}:', backdoor_adjustment('Y_observed', 'X', ['Z1','Z3'], data_missing), compute_confidence_intervals('Y_observed', 'X', ['Z1','Z3'], data_missing, "backdoor"))
+
+def dataTesting4IPW():
+    # this function tests data for graph 4
+    np.random.seed(0)
+
+    # data generation
+    size = 2000
+    Z2 = np.random.normal(0, 1, size)
+    Z1 = Z2 + np.random.normal(0, 1, size)
+    Z3 = 2*Z2 + np.random.normal(0, 1, size)
+    X = np.random.binomial(1, expit(Z1), size)
+    Y = 1.5 + 3*Z1 + 4*Z3 + 2*X + np.random.normal(0, 1, size)
+    data = pd.DataFrame({"Y": Y, "X": X, "Z1": Z1, "Z2": Z2, "Z3": Z3})
+    print('fully observed data, {Z1}:', backdoor_adjustment('Y', 'X', ['Z1'], data), compute_confidence_intervals('Y', 'X', ['Z1'], data, "backdoor"))
+    print('fully observed data, {Z1, Z3}:', backdoor_adjustment('Y', 'X', ['Z1','Z3'], data), compute_confidence_intervals('Y', 'X', ['Z1','Z3'], data, "backdoor"))
+
+    # produce a binary variables R_Y that is a function of Z3
+    #R_Y = np.random.binomial(1, expit(3*Z3+4.2), size)
+    R_Y = np.random.binomial(1, expit(Z3+1.5), size)
+    #print(R_Y.sum())
+    assert R_Y.sum() >= size*0.7, 'too many missing values in R_Y'
+
+    # create Y_observed
+    Y_observed = Y.copy()
+    for i in range(size):
+        if R_Y[i] == 0:
+            Y_observed[i] = 99999
+
+    # create a second data set augmented with observed values and missingness mechanisms
+    data_missing = data.copy()
+    data_missing["R_Y"] = R_Y
+    data_missing["Y_observed"] = Y_observed
+
+    # Create models for propensity scores of missingness mechanisms.
+    model_R_Y = sm.GLM.from_formula(formula='R_Y ~ Z3', data=data, family=sm.families.Binomial()).fit()
+
+    # drop the rows where Z1 is missing
+    data_missing = data_missing[data_missing["Y_observed"] != 99999]
+    #print(data_missing)
+
+    # Make predictions for propensity scores.
+    propensityScore_R_Y = model_R_Y.predict(data_missing)
+
+    # add the weights to the dataframe
+    data_missing["weights"] = 1/propensityScore_R_Y
+
+    # sample the data with replacement according to the weights
+    weighted_data_missing = data_missing.sample(n=len(data_missing), replace=True, weights="weights")
+
+    print('partially observed weighted data, {Z1}:', backdoor_adjustment('Y_observed', 'X', ['Z1'], weighted_data_missing), compute_confidence_intervals('Y_observed', 'X', ['Z1'], weighted_data_missing, "backdoor"))
+    print('partially observed weighted data, {Z1, Z3}:', backdoor_adjustment('Y_observed', 'X', ['Z1','Z3'], weighted_data_missing), compute_confidence_intervals('Y_observed', 'X', ['Z1','Z3'], weighted_data_missing, "backdoor"))
 
 def createAIDSGraph():
     """
@@ -457,6 +509,8 @@ def testGraph4():
     print()
     dataTesting4Unbiased()
     print()
+    print('testing graph 4 using the IPW method')
+    dataTesting4IPW()
 
 def testAIDSGraph():
     # MNAR dataset seems to be pretty unbiased, but MCAR dataset is pretty biased?
@@ -483,8 +537,8 @@ def testGraph5():
     print()
 
 if __name__ == "__main__":
-    testGraph2()
-    testGraph3()    
+    # testGraph2()
+    # testGraph3()    
     testGraph4()
-    testAIDSGraph()
-    testGraph5()
+    # testAIDSGraph()
+    # testGraph5()
